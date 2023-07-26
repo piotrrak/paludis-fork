@@ -81,7 +81,7 @@ paludis::Set<T_, C_>::Set() :
 }
 
 template <typename T_, typename C_>
-paludis::Set<T_, C_>::~Set<T_, C_>() = default;
+paludis::Set<T_, C_>::~Set() = default;
 
 template <typename T_, typename C_>
 typename paludis::Set<T_, C_>::ConstIterator

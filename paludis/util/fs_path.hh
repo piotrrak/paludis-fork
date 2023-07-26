@@ -28,6 +28,8 @@
 #include <paludis/util/pimp.hh>
 #include <sys/stat.h>
 
+#include <filesystem>
+
 namespace paludis
 {
     class PALUDIS_VISIBLE FSPath
