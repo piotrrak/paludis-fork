@@ -20,6 +20,7 @@
 #include <paludis/util/upper_lower.hh>
 #include <cctype>
 #include <algorithm>
+#include <iterator>
 
 namespace paludis
 {
