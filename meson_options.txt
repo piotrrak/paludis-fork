@@ -1,0 +1,42 @@
+option('pbins', type: 'boolean', value: true)
+option('unit_tests', type: 'boolean', value: true)
+
+option('repositories',
+  type: 'array',
+  choices: [
+    'all',
+    'default',
+
+    'accounts',
+    'e',
+    'fake',
+    'repository',
+    'unavailable',
+    'unpackaged',
+    'unwritten'
+  ],
+  value: [
+    'e',
+    'fake',
+    'repository',
+    'unavailable',
+    'unpackaged',
+    'unwritten'
+  ]
+)
+
+option('environments',
+  type: 'array',
+  choices: [
+    'all',
+    'default',
+
+    'paludis',
+    'portage',
+    'test'
+  ],
+  value: [
+    'paludis',
+    'test',
+  ]
+)
