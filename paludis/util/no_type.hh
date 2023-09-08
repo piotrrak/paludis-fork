@@ -39,7 +39,7 @@ namespace paludis
      * \ingroup g_utils
      * \since 0.26
      */
-    template <unsigned u_>
+    template <auto>
     class NoType;
 }
 
