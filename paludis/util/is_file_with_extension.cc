@@ -43,10 +43,10 @@ paludis::is_file_with_prefix_extension(const FSPath & f, const std::string & pre
     if (filename.length() < ext.length() + prefix.length())
         return false;
 
-    if (0 != filename.compare(filename.length() - ext.length(), ext.length(), ext))
-        return false;
-    if (0 != filename.compare(0, prefix.length(), prefix))
-        return false;
+    if (!filename.ends_with(ext))
+      return false;
+    if (!(filename.starts_with(prefix) || prefix.empty()))
+      return false;
 
     FSStat f_stat(f);
     return f_stat.is_regular_file() || ((! o[ifwo_no_follow_symlinks]) && f_stat.exists() && f.realpath().stat().is_regular_file());

@@ -51,9 +51,9 @@ TEST(IsFileWithPrefixExtension, Works)
 
     ASSERT_TRUE(e.stat().exists());
 
-    EXPECT_TRUE(! is_file_with_prefix_extension(d, "teh", "foo", { }));
-    EXPECT_TRUE(! is_file_with_prefix_extension(e, "teh", "foo", { }));
-    EXPECT_TRUE(! is_file_with_prefix_extension(d, "is", "goat", { }));
+    EXPECT_TRUE(not is_file_with_prefix_extension(d, "teh", "foo", {}));
+    EXPECT_TRUE(not is_file_with_prefix_extension(e, "teh", "foo", {}));
+    EXPECT_TRUE(not is_file_with_prefix_extension(d, "is", "goat", {}));
     EXPECT_TRUE(is_file_with_prefix_extension(e, "is", "goat", { }));
     EXPECT_TRUE(! is_file_with_prefix_extension(e, "with", "goat", { }));
 }
