@@ -78,16 +78,16 @@ TEST(FSPath, BaseDirName)
     FSPath d(".");
     FSPath e("..");
 
-    EXPECT_TRUE(a.basename() == "bar");
-    EXPECT_TRUE(stringify(a.dirname()) == "/foo");
-    EXPECT_TRUE(b.basename() == "cow");
-    EXPECT_TRUE(stringify(b.dirname()) == "/moo/went/the");
-    EXPECT_TRUE(c.basename() == "/");
-    EXPECT_TRUE(stringify(c.dirname()) == "/");
-    EXPECT_TRUE(d.basename() == ".");
-    EXPECT_TRUE(stringify(d.dirname()) == ".");
-    EXPECT_TRUE(e.basename() == "..");
-    EXPECT_TRUE(stringify(e.dirname()) == "..");
+    EXPECT_EQ(a.basename(), "bar");
+    EXPECT_EQ(stringify(a.dirname()), "/foo");
+    EXPECT_EQ(b.basename(), "cow");
+    EXPECT_EQ(stringify(b.dirname()), "/moo/went/the");
+    EXPECT_EQ(c.basename(), "/");
+    EXPECT_EQ(stringify(c.dirname()), "/");
+    EXPECT_EQ(d.basename(), ".");
+    EXPECT_EQ(stringify(d.dirname()), ".");
+    EXPECT_EQ(e.basename(), "..");
+    EXPECT_EQ(stringify(e.dirname()), "..");
 }
 
 TEST(FSPath, StripLeading)
@@ -101,10 +101,10 @@ TEST(FSPath, StripLeading)
     FSPath c(root2 / "my" / "directory");
     FSPath d(root3 / "my" / "directory");
 
-    EXPECT_TRUE(stringify(a.strip_leading(root1)) == "/");
-    EXPECT_TRUE(stringify(b.strip_leading(root1)) == "/usr/share");
-    EXPECT_TRUE(stringify(c.strip_leading(root2)) == "/my/directory");
-    EXPECT_TRUE(stringify(d.strip_leading(root3)) == "/my/directory");
+    EXPECT_EQ(stringify(a.strip_leading(root1)), "/");
+    EXPECT_EQ(stringify(b.strip_leading(root1)), "/usr/share");
+    EXPECT_EQ(stringify(c.strip_leading(root2)), "/my/directory");
+    EXPECT_EQ(stringify(d.strip_leading(root3)), "/my/directory");
 }
 
 TEST(FSPath, StartsWith)
