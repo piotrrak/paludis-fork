@@ -94,12 +94,8 @@ SafeIFStreamBase::SafeIFStreamBase(const int f) :
 {
 }
 
-SafeIFStream::SafeIFStream(const int f) :
-    SafeIFStreamBase(f),
-    std::istream(&buf),
-    _close(false)
-{
-}
+SafeIFStream::SafeIFStream(const int f)
+    : std::istream(&buf), SafeIFStreamBase(f), _close(false) {}
 
 namespace
 {
@@ -115,11 +111,9 @@ namespace
     }
 }
 
-SafeIFStream::SafeIFStream(const FSPath & e) :
-    SafeIFStreamBase(open_path(e)),
-    std::istream(&buf),
-    _close(true)
-{
+SafeIFStream::SafeIFStream(const FSPath &e)
+    : std::istream{nullptr}, SafeIFStreamBase(open_path(e)), _close(true) {
+  SafeIFStream::basic_ios<char>::init(&buf);
 }
 
 SafeIFStream::~SafeIFStream()

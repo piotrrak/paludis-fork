@@ -99,22 +99,20 @@ namespace paludis
      * \ingroup g_fs
      * \since 0.34.3
      */
-    class PALUDIS_VISIBLE SafeIFStream :
-        protected SafeIFStreamBase,
-        public std::istream
-    {
-        private:
-            const bool _close;
+    class PALUDIS_VISIBLE SafeIFStream : public std::istream,
+                                         protected SafeIFStreamBase {
+    private:
+      const bool _close;
 
-        public:
-            ///\name Basic operations
-            ///\{
+    public:
+      ///\name Basic operations
+      ///\{
 
-            explicit SafeIFStream(const int fd);
-            explicit SafeIFStream(const FSPath &);
-            ~SafeIFStream() override;
+      explicit SafeIFStream(const int fd);
+      explicit SafeIFStream(const FSPath &);
+      ~SafeIFStream() override;
 
-            ///\}
+      ///\}
     };
 
     /**
