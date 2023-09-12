@@ -58,6 +58,7 @@ namespace
 {
     static const std::string so_suffix("_" + stringify(PALUDIS_PC_SLOT)
             + ".so." + stringify(100 * PALUDIS_VERSION_MAJOR + PALUDIS_VERSION_MINOR));
+    static const std::string simple_so_suffix = ".so";
 
     class BashHookFile :
         public HookFile
@@ -507,6 +508,12 @@ namespace paludis
                     {
                         hook_file = std::make_shared<SoHookFile>(*e, dir.second, env);
                         filename = strip_trailing_string(e->basename(), so_suffix);
+                    } else if (is_file_with_extension(*e, simple_so_suffix,
+                                                      {})) {
+                      hook_file =
+                          std::make_shared<SoHookFile>(*e, dir.second, env);
+                      filename = strip_trailing_string(e->basename(),
+                                                       simple_so_suffix);
                     }
 
                     if (! hook_file)
@@ -614,6 +621,24 @@ Hooker::_find_hooks(const Hook & hook) const
                      Log::get_instance()->message("hook.discarding", ll_warning, lc_context) << "Discarding hook file '" << *e
                          << "' because of naming conflict with '" <<
                          hook_files.find(stringify(strip_trailing_string(e->basename(), so_suffix)))->second->file_name() << "'";
+
+            if (is_file_with_extension(*e, simple_so_suffix, {}))
+              if (!hook_files
+                       .insert(std::make_pair(
+                           strip_trailing_string(e->basename(),
+                                                 simple_so_suffix),
+                           std::make_shared<SoHookFile>(*e, dir.second,
+                                                        _imp->env)))
+                       .second)
+                Log::get_instance()->message("hook.discarding", ll_warning,
+                                             lc_context)
+                    << "Discarding hook file '" << *e
+                    << "' because of naming conflict with '"
+                    << hook_files
+                           .find(stringify(strip_trailing_string(
+                               e->basename(), simple_so_suffix)))
+                           ->second->file_name()
+                    << "'";
 
 #ifdef ENABLE_PYTHON_HOOKS
             if (is_file_with_extension(*e, ".py", { }))

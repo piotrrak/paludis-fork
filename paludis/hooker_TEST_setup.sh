@@ -49,12 +49,17 @@ hook_after_fancy_hook_output() {
 END
 chmod +x fancy_hook_output/one.hook
 
+if [ -z ${PALUDIS_HOOKERTEST_LIB_PATH+X} ]; then
+    PALUDIS_HOOKERTEST_LIB_PATH=${TOP_BUILDDIR}/paludis/libpaludissohooks_TEST_${PALUDIS_PC_SLOT}.so.${SO_SUFFIX}
+fi
+
+[[ ! -f ${PALUDIS_HOOKERTEST_LIB_PATH} ]] && echo 'Missing test so library' >&2
 
 mkdir so_hook
-ln -s ${TOP_BUILDDIR}/paludis/libpaludissohooks_TEST_${PALUDIS_PC_SLOT}.so.${SO_SUFFIX} so_hook
+ln -s ${PALUDIS_HOOKERTEST_LIB_PATH} so_hook
 
 mkdir so_hook_output
-ln -s ${TOP_BUILDDIR}/paludis/libpaludissohooks_TEST_${PALUDIS_PC_SLOT}.so.${SO_SUFFIX} so_hook_output
+ln -s ${PALUDIS_HOOKERTEST_LIB_PATH} so_hook_output
 
 mkdir py_hook
 
@@ -223,7 +228,7 @@ chmod +x ordering.common
 for a in a b c d e f g h i j k ; do
     ln -s ../ordering.common ordering/${a}.hook
 done
-ln -s ${TOP_BUILDDIR}/paludis/libpaludissohooks_TEST_${PALUDIS_PC_SLOT}.so.${SO_SUFFIX} ordering
+ln -s ${PALUDIS_HOOKERTEST_LIB_PATH} ordering
 cat <<"END" > ordering/py_hook.py
 def hook_run_ordering(env, hook_env):
     open("hooker_TEST_dir/ordering.out", "a").write("py_hook\n")
