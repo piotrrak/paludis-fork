@@ -31,39 +31,59 @@
 #include <paludis/util/wrapped_output_iterator-impl.hh>
 #include <paludis/util/wrapped_forward_iterator-impl.hh>
 
-#include <cstdio>
-#include <string>
 #include <climits>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <errno.h>
+#include <fcntl.h>
+#include <filesystem>
+#include <iomanip>
+#include <ranges>
+#include <string>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include "config.h"
 
 using namespace paludis;
+using path_t = std::filesystem::path;
 
-namespace paludis
-{
-    template <>
-    struct Imp<FSPath>
-    {
-        std::string path;
+namespace rs = std::ranges;
+namespace rv = rs::views;
 
-        Imp(const std::string & p) :
-            path(p)
-        {
-        }
-    };
+template <> struct paludis::Imp<FSPath> {
+  friend std::strong_ordering operator<=>(const Imp<FSPath> &me,
+                                          const Imp<FSPath> &other) {
+    return me.path <=> other.path;
+  }
+
+  path_t path;
+
+  Imp(const path_t &p) : path(p) {}
+
+  auto as_string() const -> std::string { return path.string(); }
+
+  auto as_c_str() const noexcept { return path.c_str(); }
+};
+
+std::strong_ordering FSPath::compare(const FSPath &other) const noexcept {
+  return _imp->path <=> other._imp->path;
 }
 
-FSPath::FSPath(const std::string & path) :
-    _imp(path)
-{
-    _normalise();
+bool paludis::operator==(const FSPath &me, const FSPath &other) noexcept {
+  return std::strong_ordering::equal == (me <=> other);
+}
+
+bool paludis::operator!=(const FSPath &, const FSPath &) noexcept = default;
+
+FSPath::FSPath(const std::string &path) try : _imp(path) {
+  _normalise();
+} catch (const std::exception &e) {
+  Context c("When normalising FSPath path '" + path + "':");
+  throw InternalError(PALUDIS_HERE,
+                      "caught std::exception '" + stringify(e.what()) + "'");
 }
 
 FSPath::FSPath(const FSPath & other) :
@@ -89,21 +109,9 @@ FSPath::operator= (const FSPath & other)
 FSPath &
 FSPath::operator/= (const FSPath & rhs)
 {
-    if (rhs._imp->path == "/")
-        return *this;
-
-    if (_imp->path.empty() || '/' != _imp->path.at(_imp->path.length() - 1))
-        _imp->path.append("/");
-
-    if (! rhs._imp->path.empty())
-    {
-        if ('/' == rhs._imp->path.at(0))
-            _imp->path.append(rhs._imp->path.substr(1));
-        else
-            _imp->path.append(rhs._imp->path);
-    }
-
-    return *this;
+  for (auto p : rhs._imp->path | rv::filter([](auto p) { return p != "/"; }))
+    _imp->path /= p;
+  return *this;
 }
 
 FSPath &
@@ -126,106 +134,77 @@ FSPath::operator/ (const std::string & rhs) const
     return *this / FSPath(rhs);
 }
 
-bool
-paludis::operator== (const FSPath & me, const FSPath & other)
-{
-    return me._imp->path == other._imp->path;
-}
-
-bool
-paludis::operator!= (const FSPath & me, const FSPath & other)
-{
-    return ! operator== (me, other);
-}
+FSPath::operator path_t() const { return _imp->path; }
 
 void
 FSPath::_normalise()
 {
-    try
-    {
-        if (std::string::npos != _imp->path.find("//"))
-        {
-            std::string new_path;
-            std::string::size_type p(0);
-            while (p < _imp->path.length())
-            {
-                if ('/' == _imp->path[p])
-                {
-                    new_path += '/';
-                    while (++p < _imp->path.length())
-                        if ('/' != _imp->path[p])
-                            break;
-                }
-                else
-                    new_path += _imp->path[p++];
-            }
-            _imp->path = new_path;
-        }
-
-        if (! _imp->path.empty())
-            if ('/' == _imp->path.at(_imp->path.length() - 1))
-                _imp->path.erase(_imp->path.length() - 1);
-        if (_imp->path.empty())
-            _imp->path = "/";
-    }
-    catch (const std::exception & e)
-    {
-        Context c("When normalising FSPath path '" + _imp->path + "':");
-        throw InternalError(PALUDIS_HERE,
-                "caught std::exception '" + stringify(e.what()) + "'");
-    }
+  auto rev = rv::reverse(_imp->path);
+  if (!rev.empty() && *rev.begin() == "")
+    _imp->path = _imp->path.parent_path();
 }
 
-const std::string
-FSPath::basename() const
-{
-    if (_imp->path == "/")
-        return _imp->path;
-
-    return _imp->path.substr(_imp->path.rfind('/') + 1);
+std::string FSPath::basename() const {
+  if (not _imp->path.has_filename())
+    return _imp->path.root_path();
+  if (_imp->path == "." || _imp->path == "..")
+    return _imp->path.string();
+  return _imp->path.filename();
 }
+
+std::string FSPath::stem() const { return _imp->path.stem(); }
+
+std::string FSPath::extension() const { return _imp->path.extension(); }
 
 FSPath
 FSPath::strip_leading(const FSPath & f) const
 {
-    std::string root(stringify(f));
+  auto mismatch = rs::mismatch(_imp->path, f._imp->path);
 
-    if (root == "/")
-        root.clear();
-    if (0 != _imp->path.compare(0, root.length(), root))
-        throw FSError("Can't strip leading '" + root + "' from FSPath '" + _imp->path + "'");
-    return FSPath(_imp->path.substr(root.length()));
+  if (mismatch.in2 != f._imp->path.end())
+    throw FSError("Can't strip leading '" + stringify(f) + "' from FSPath '" +
+                  _imp->as_string() + "'");
+
+  auto r = path_t{"/"};
+
+  for (auto part : rs::subrange(mismatch.in1, _imp->path.end()))
+    r /= part;
+
+  return FSPath{r};
 }
 
 bool
 FSPath::starts_with(const FSPath & f) const
 {
-    std::string root(stringify(f));
+#if defined(__cpp_lib_ranges_starts_ends_with) &&                              \
+    __cpp_lib_ranges_starts_ends_with >= 202106L
+  return rs::starts_with(_imp->path, f.imp->path);
+#else
+  const auto mismatch = rs::mismatch(_imp->path, f._imp->path);
 
-    if (root == "/")
-        root.clear();
-    root.append("/");
-    return 0 == (_imp->path + "/").compare(0, root.length(), root);
+  return mismatch.in2 == std::end(f._imp->path);
+#endif
 }
 
 FSPath
 FSPath::dirname() const
 {
-    if (_imp->path == "/")
-        return FSPath(_imp->path);
+  if (_imp->path == "." || _imp->path == "..")
+    return FSPath{_imp->path.generic_string()};
 
-    return FSPath(_imp->path.substr(0, _imp->path.rfind('/')));
+  auto ret = _imp->path.parent_path().generic_string();
+  return FSPath{ret};
 }
 
 FSPath
 FSPath::realpath() const
 {
-    Context context("When fetching realpath of '" + stringify(_imp->path) + "':");
+  Context context("When fetching realpath of '" + _imp->as_string() + "':");
 
 #ifdef HAVE_CANONICALIZE_FILE_NAME
     char * r(canonicalize_file_name(_imp->path.c_str()));
     if (! r)
-        throw FSError("Could not resolve path '" + _imp->path + "'");
+      throw FSError("Could not resolve path '" + _imp->as_string() + "'");
     FSPath result(r);
     std::free(r);
     return result;
@@ -233,12 +212,12 @@ FSPath::realpath() const
     char r[PATH_MAX + 1];
     std::memset(r, 0, PATH_MAX + 1);
     if (! stat().exists())
-        throw FSError("Could not resolve path '" + _imp->path + "'");
+      throw FSError("Could not resolve path '" + _imp->as_string() + "'");
     if (! ::realpath(_imp->path.c_str(), r))
-        throw FSError("Could not resolve path '" + _imp->path + "'");
+      throw FSError("Could not resolve path '" + _imp->as_string() + "'");
     FSPath result(r);
     if (! result.stat().exists())
-        throw FSError("Could not resolve path '" + _imp->path + "'");
+      throw FSError("Could not resolve path '" + _imp->as_string() + "'");
     return result;
 #endif
 }
@@ -246,22 +225,23 @@ FSPath::realpath() const
 FSPath
 FSPath::realpath_if_exists() const
 {
-    Context context("When fetching realpath of '" + stringify(_imp->path) + "', if it exists:");
+  Context context("When fetching realpath of '" + _imp->as_string() +
+                  "', if it exists:");
 
 #ifdef HAVE_CANONICALIZE_FILE_NAME
-    char * r(canonicalize_file_name(_imp->path.c_str()));
-    if (! r)
-        return *this;
-    FSPath result(r);
-    std::free(r);
-    return result;
+  char *r(canonicalize_file_name(_imp->as_c_str()));
+  if (!r)
+    return *this;
+  FSPath result(r);
+  std::free(r);
+  return result;
 #else
     char r[PATH_MAX + 1];
     std::memset(r, 0, PATH_MAX + 1);
     if (! stat().exists())
         return *this;
-    if (! ::realpath(_imp->path.c_str(), r))
-        return *this;
+    if (!::realpath(_imp->as_c_str(), r))
+      return *this;
     FSPath result(r);
     if (! result.stat().exists())
         return *this;
@@ -282,42 +262,43 @@ FSPath::cwd()
 std::ostream &
 paludis::operator<< (std::ostream & s, const FSPath & f)
 {
-    s << f._imp->path;
-    return s;
+  s << f._imp->path.generic_string();
+  return s;
 }
 
 bool
 FSPath::mkdir(const mode_t mode, const FSPathMkdirOptions & options) const
 {
-    if (0 == ::mkdir(_imp->path.c_str(), mode))
-        return true;
+  if (0 == ::mkdir(_imp->as_c_str(), mode))
+    return true;
 
-    int e(errno);
-    if (e == EEXIST && options[fspmkdo_ok_if_exists])
-    {
-        if (stat().is_directory())
-            return false;
-        throw FSError("mkdir '" + _imp->path + "' failed: target exists and is not a directory");
+  int e(errno);
+  if (e == EEXIST && options[fspmkdo_ok_if_exists]) {
+    if (stat().is_directory())
+      return false;
+    throw FSError("mkdir '" + _imp->as_string() +
+                  "' failed: target exists and is not a directory");
     }
     else
-        throw FSError(errno, "mkdir '" + _imp->path + "' failed");
+      throw FSError(errno, "mkdir '" + _imp->as_string() + "' failed");
 }
 
 bool
 FSPath::symlink(const std::string & target) const
 {
-    if (0 == ::symlink(target.c_str(), _imp->path.c_str()))
-        return true;
+  if (0 == ::symlink(target.c_str(), _imp->as_c_str()))
+    return true;
 
-    int e(errno);
-    if (e == EEXIST)
-    {
-        if (stat().is_symlink() && target == readlink())
-            return false;
-        throw FSError("symlink '" + _imp->path + "' to '" + target + "' failed: target exists");
+  int e(errno);
+  if (e == EEXIST) {
+    if (stat().is_symlink() && target == readlink())
+      return false;
+    throw FSError("symlink '" + _imp->as_string() + "' to '" + target +
+                  "' failed: target exists");
     }
     else
-        throw FSError(errno, "symlink '" + _imp->path + "' to '" + target + "' failed");
+      throw FSError(errno, "symlink '" + _imp->as_string() + "' to '" + target +
+                               "' failed");
 }
 
 bool
@@ -328,7 +309,8 @@ FSPath::unlink() const
     {
         int e(errno);
         if (e != ENOENT)
-            throw FSError(e, "lchflags for unlink '" + _imp->path + "' failed");
+          throw FSError(e, "lchflags for unlink '" + _imp->as_string() +
+                               "' failed");
     }
 #endif
 
@@ -339,7 +321,7 @@ FSPath::unlink() const
     if (e == ENOENT)
         return false;
     else
-        throw FSError(e, "unlink '" + _imp->path + "' failed");
+      throw FSError(e, "unlink '" + _imp->as_string() + "' failed");
 }
 
 bool
@@ -352,7 +334,7 @@ FSPath::rmdir() const
     if (e == ENOENT)
         return false;
     else
-        throw FSError(e, "rmdir '" + _imp->path + "' failed");
+      throw FSError(e, "rmdir '" + _imp->as_string() + "' failed");
 }
 
 bool
@@ -379,7 +361,7 @@ FSPath::utime(const Timestamp & t) const
                 << "utimensat(2) not implemented by this kernel, using utimes(2)";
         }
         else
-            throw FSError(e, "utimensat '" + _imp->path + "' failed");
+          throw FSError(e, "utimensat '" + _imp->as_string() + "' failed");
     }
 #endif
 
@@ -391,7 +373,7 @@ FSPath::utime(const Timestamp & t) const
     if (e == ENOENT)
         return false;
     else
-        throw FSError(e, "utimes '" + _imp->path + "' failed");
+      throw FSError(e, "utimes '" + _imp->as_string() + "' failed");
 }
 
 std::string
@@ -400,7 +382,7 @@ FSPath::readlink() const
     char buf[PATH_MAX + 1];
     std::memset(buf, 0, PATH_MAX + 1);
     if (-1 == ::readlink(_imp->path.c_str(), buf, PATH_MAX))
-        throw FSError(errno, "readlink '" + _imp->path + "' failed");
+      throw FSError(errno, "readlink '" + _imp->as_string() + "' failed");
     return buf;
 }
 
@@ -408,49 +390,51 @@ void
 FSPath::chown(const uid_t new_owner, const gid_t new_group) const
 {
     if (0 != ::chown(_imp->path.c_str(), new_owner, new_group))
-        throw FSError(errno, "chown '" + _imp->path + "' to '" + stringify(new_owner) + "', '"
-                + stringify(new_group) + "' failed");
+      throw FSError(errno, "chown '" + _imp->as_string() + "' to '" +
+                               stringify(new_owner) + "', '" +
+                               stringify(new_group) + "' failed");
 }
 
 void
 FSPath::lchown(const uid_t new_owner, const gid_t new_group) const
 {
-    if (0 != ::lchown(_imp->path.c_str(), new_owner, new_group))
-        throw FSError(errno, "lchown '" + _imp->path + "' to '" + stringify(new_owner) + "', '"
-                + stringify(new_group) + "' failed");
+  if (0 != ::lchown(_imp->as_c_str(), new_owner, new_group))
+    throw FSError(errno, "lchown '" + _imp->as_string() + "' to '" +
+                             stringify(new_owner) + "', '" +
+                             stringify(new_group) + "' failed");
 }
 
 void
 FSPath::chmod(const mode_t mode) const
 {
-    if (0 != ::chmod(_imp->path.c_str(), mode))
-        throw FSError(errno, "chmod '" + _imp->path + "' failed");
+  if (0 != ::chmod(_imp->as_c_str(), mode))
+    throw FSError(errno, "chmod '" + _imp->as_string() + "' failed");
 }
 
 void
 FSPath::rename(const FSPath & new_name) const
 {
-    if (0 != std::rename(_imp->path.c_str(), new_name._imp->path.c_str()))
-        throw FSError(errno, "rename('" + stringify(_imp->path) + "', '"
-                + stringify(new_name._imp->path) + "') failed");
+  if (0 != std::rename(_imp->as_c_str(), new_name._imp->as_c_str())) {
+    throw FSError(errno, "rename('" + stringify(_imp->path) + "', '" +
+                             stringify(new_name._imp->path) + "') failed");
+  }
 }
 
-bool
-FSPathComparator::operator() (const FSPath & a, const FSPath & b) const
-{
-    return stringify(a) < stringify(b);
+bool FSPathComparator::operator()(const FSPath &a,
+                                  const FSPath &b) const noexcept {
+  return std::strong_ordering::less == (a <=> b);
 }
 
-namespace paludis
-{
-    template class PALUDIS_VISIBLE Sequence<FSPath>;
-    template class PALUDIS_VISIBLE WrappedForwardIterator<Sequence<FSPath>::ConstIteratorTag, const FSPath>;
-    template class PALUDIS_VISIBLE WrappedForwardIterator<Sequence<FSPath>::ReverseConstIteratorTag, const FSPath>;
-    template class PALUDIS_VISIBLE WrappedOutputIterator<Sequence<FSPath>::InserterTag, FSPath>;
+template class PALUDIS_IF_GCC_VISIBLE paludis::Sequence<FSPath>;
+template class PALUDIS_IF_GCC_VISIBLE paludis::WrappedForwardIterator<
+    Sequence<FSPath>::ConstIteratorTag, const FSPath>;
+template class PALUDIS_IF_GCC_VISIBLE paludis::WrappedForwardIterator<
+    Sequence<FSPath>::ReverseConstIteratorTag, const FSPath>;
+template class PALUDIS_IF_GCC_VISIBLE paludis::WrappedOutputIterator<Sequence<FSPath>::InserterTag,
+                                              FSPath>;
 
-    template class PALUDIS_VISIBLE Set<FSPath, FSPathComparator>;
-    template class PALUDIS_VISIBLE WrappedForwardIterator<Set<FSPath, FSPathComparator>::ConstIteratorTag, const FSPath>;
+template class PALUDIS_IF_GCC_VISIBLE paludis::Set<FSPath, FSPathComparator>;
+template class PALUDIS_IF_GCC_VISIBLE paludis::WrappedForwardIterator<
+    Set<FSPath, FSPathComparator>::ConstIteratorTag, const FSPath>;
 
-    template class Pimp<FSPath>;
-}
-
+template class paludis::Pimp<FSPath>;

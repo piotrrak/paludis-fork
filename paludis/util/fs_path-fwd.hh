@@ -42,8 +42,10 @@ namespace paludis
      */
     std::ostream & operator<< (std::ostream & s, const FSPath & f) PALUDIS_VISIBLE;
 
-    bool operator== (const FSPath &, const FSPath &) PALUDIS_VISIBLE;
-    bool operator!= (const FSPath &, const FSPath &) PALUDIS_VISIBLE;
+    [[nodiscard, paludis_visible]] bool operator==(const FSPath &,
+                                                   const FSPath &) noexcept;
+    [[nodiscard, paludis_visible]] bool operator!=(const FSPath &,
+                                                   const FSPath &) noexcept;
 
 #include <paludis/util/fs_path-se.hh>
 

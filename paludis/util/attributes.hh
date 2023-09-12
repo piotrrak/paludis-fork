@@ -55,6 +55,15 @@
 #  define PALUDIS_ATTRIBUTE(x) __attribute__(x)
 #endif
 
+#define paludis_visible gnu::visibility("default")
+#define paludis_hidden gnu::visibility("hidden")
+
+#if defined(__clang__)
+#define PALUDIS_IF_GCC_VISIBLE
+#elif defined(__GNUC__)
+#define PALUDIS_IF_GCC_VISIBLE [[paludis_visible]]
+#endif
+
 #if defined(DOXYGEN)
 #  define PALUDIS_VISIBLE
 #  define PALUDIS_HIDDEN

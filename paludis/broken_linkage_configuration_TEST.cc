@@ -43,8 +43,9 @@ TEST(BrokenLinkageConfiguration, Works)
             "/hwdp foobar /lib32 /lib64 /quuxlib /qwerty1 /qwerty2 /sbin /uiop1 /uiop2 /usr/*/bin /usr/*/lib /usr/bin /usr/lib* /usr/sbin",
             join(config.begin_search_dirs(), config.end_search_dirs(), " "));
 
-    ASSERT_EQ("/42 /barlib/foo /fhqwhgads1 /fhqwhgads2 /foolib/bar /lib /qwerty1 /qwerty2 /uiop1 /uiop2 /usr/lib hwdp foobar",
-            join(config.begin_ld_so_conf(), config.end_ld_so_conf(), " "));
+    ASSERT_EQ("hwdp foobar /42 /barlib/foo /fhqwhgads1 /fhqwhgads2 /foolib/bar "
+              "/lib /qwerty1 /qwerty2 /uiop1 /uiop2 /usr/lib",
+              join(config.begin_ld_so_conf(), config.end_ld_so_conf(), " "));
 
     EXPECT_TRUE(config.dir_is_masked(FSPath("/meh")));
     EXPECT_TRUE(config.dir_is_masked(FSPath("/quuxlib/quux")));
