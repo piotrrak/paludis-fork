@@ -25,7 +25,6 @@
 #include <paludis/util/fs_path-fwd.hh>
 #include <paludis/util/fs_stat-fwd.hh>
 #include <paludis/util/timestamp-fwd.hh>
-#include <paludis/util/pimp.hh>
 #include <sys/stat.h>
 
 #include <compare>
@@ -44,18 +43,22 @@ class [[nodiscard, paludis_visible]] FSPath {
   friend bool paludis::operator!=(const FSPath &, const FSPath &) noexcept;
 
 private:
-  Pimp<FSPath> _imp;
+  using path_t = std::filesystem::path;
+  path_t _path;
 
+  static path_t _normalised(path_t);
   void _normalise();
 
 public:
   explicit FSPath(const std::string &);
+  explicit FSPath(std::convertible_to<path_t> auto &&p)
+      : _path{_normalised(std::forward<decltype(p)>(p))} {}
 
-  FSPath(const FSPath &);
+  FSPath(const FSPath &) = default;
+  FSPath(FSPath &&) = default;
 
-  FSPath &operator=(const FSPath &);
-
-  ~FSPath();
+  FSPath &operator=(const FSPath &) = default;
+  FSPath &operator=(FSPath &&) = default;
 
   FSStat stat() const;
 
@@ -67,7 +70,7 @@ public:
   FSPath &operator/=(const std::string &);
   FSPath &operator/=(const FSPath &);
 
-  [[nodiscard]] explicit operator std::filesystem::path() const;
+  [[nodiscard]] explicit operator path_t() const;
 
   /**
    * Return the last part of our path (eg '/foo/bar' => 'bar').
@@ -226,8 +229,6 @@ class [[paludis_visible]] FSPathComparator {
 public:
   bool operator()(const FSPath &, const FSPath &) const noexcept;
 };
-
-    extern template class Pimp<FSPath>;
 }
 
 #endif

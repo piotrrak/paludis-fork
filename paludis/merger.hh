@@ -20,15 +20,16 @@
 #ifndef PALUDIS_GUARD_PALUDIS_MERGER_HH
 #define PALUDIS_GUARD_PALUDIS_MERGER_HH 1
 
-#include <paludis/merger-fwd.hh>
-#include <paludis/util/named_value.hh>
-#include <paludis/util/options.hh>
-#include <paludis/util/timestamp.hh>
-#include <paludis/util/fs_path.hh>
-#include <paludis/hook-fwd.hh>
 #include <paludis/environment-fwd.hh>
+#include <paludis/hook-fwd.hh>
+#include <paludis/merger-fwd.hh>
 #include <paludis/merger_entry_type.hh>
 #include <paludis/output_manager-fwd.hh>
+#include <paludis/util/fs_path.hh>
+#include <paludis/util/named_value.hh>
+#include <paludis/util/options.hh>
+#include <paludis/util/pimp.hh>
+#include <paludis/util/timestamp.hh>
 
 namespace paludis
 {
