@@ -53,6 +53,23 @@ using path_t = std::filesystem::path;
 namespace rs = std::ranges;
 namespace rv = rs::views;
 
+namespace {
+
+constexpr bool compat_starts_with(rs::input_range auto && r1, rs::input_range auto && r2)
+{
+
+#if defined(__cpp_lib_ranges_starts_ends_with) &&                              \
+    __cpp_lib_ranges_starts_ends_with >= 202106L
+  return rs::starts_with(r1, r2);
+#else
+  const auto mismatch = rs::mismatch(r1, r2);
+
+  return mismatch.in2 == std::end(r2);
+#endif
+}
+
+}
+
 template <> struct paludis::Imp<FSPath> {
   friend std::strong_ordering operator<=>(const Imp<FSPath> &me,
                                           const Imp<FSPath> &other) {
@@ -176,14 +193,7 @@ FSPath::strip_leading(const FSPath & f) const
 bool
 FSPath::starts_with(const FSPath & f) const
 {
-#if defined(__cpp_lib_ranges_starts_ends_with) &&                              \
-    __cpp_lib_ranges_starts_ends_with >= 202106L
-  return rs::starts_with(_imp->path, f.imp->path);
-#else
-  const auto mismatch = rs::mismatch(_imp->path, f._imp->path);
-
-  return mismatch.in2 == std::end(f._imp->path);
-#endif
+  return compat_starts_with(_imp->path, f._imp->path);
 }
 
 FSPath
