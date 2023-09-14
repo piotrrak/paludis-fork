@@ -157,10 +157,10 @@ FSPath::strip_leading(const FSPath & f) const
   auto mismatch = rs::mismatch(_path, f._path);
 
   if (mismatch.in2 != f._path.end())
-    throw FSError("Can't strip leading '" + stringify(f) + "' from FSPath '" +
-                  _path.string() + "'");
+    throw FSError("Can't strip leading '{}' from FSPath '{}'", stringify(f),
+                  _path.string());
 
-  auto r = path_t{"/"};
+  auto r = paths::root;
 
   for (auto part : rs::subrange(mismatch.in1, _path.end()))
     r /= part;
@@ -191,7 +191,7 @@ FSPath::realpath() const
 #ifdef HAVE_CANONICALIZE_FILE_NAME
   char *r(canonicalize_file_name(_path.c_str()));
   if (!r)
-    throw FSError("Could not resolve path '" + _path.string() + "'");
+    throw FSError("Could not resolve path '{}'", _path.string());
   FSPath result(r);
   std::free(r);
   return result;
@@ -199,12 +199,12 @@ FSPath::realpath() const
     char r[PATH_MAX + 1];
     std::memset(r, 0, PATH_MAX + 1);
     if (! stat().exists())
-      throw FSError("Could not resolve path '" + _path.string() + "'");
+      throw FSError("Could not resolve path '{}'", _path.string());
     if (!::realpath(_path.c_str(), r))
-      throw FSError("Could not resolve path '" + _path.string() + "'");
+      throw FSError("Could not resolve path '{}'", _path.string());
     FSPath result(r);
     if (! result.stat().exists())
-      throw FSError("Could not resolve path '" + _path.string() + "'");
+      throw FSError("Could not resolve path '{}'", _path.string());
     return result;
 #endif
 }
@@ -263,11 +263,11 @@ FSPath::mkdir(const mode_t mode, const FSPathMkdirOptions & options) const
   if (e == EEXIST && options[fspmkdo_ok_if_exists]) {
     if (stat().is_directory())
       return false;
-    throw FSError("mkdir '" + _path.string() +
-                  "' failed: target exists and is not a directory");
+    throw FSError("mkdir '{}' failed: target exists and is not a directory",
+                  _path.string());
     }
     else
-      throw FSError(errno, "mkdir '" + _path.string() + "' failed");
+      throw FSError(errno, "mkdir '{}' failed", _path.string());
 }
 
 bool
@@ -280,12 +280,12 @@ FSPath::symlink(const std::string & target) const
   if (e == EEXIST) {
     if (stat().is_symlink() && target == readlink())
       return false;
-    throw FSError("symlink '" + _path.string() + "' to '" + target +
-                  "' failed: target exists");
+    throw FSError("symlink '{}' to '{}' failed: target exists", _path.string(),
+                  target);
     }
     else
-      throw FSError(errno, "symlink '" + _path.string() + "' to '" + target +
-                               "' failed");
+      throw FSError(errno, "symlink '{}' to '{}' failed", _path.string(),
+                    target);
 }
 
 bool
@@ -295,7 +295,7 @@ FSPath::unlink() const
   if (0 != ::lchflags(_path.c_str(), 0)) {
     int e(errno);
     if (e != ENOENT)
-      throw FSError(e, "lchflags for unlink '" + _path.string() + "' failed");
+      throw FSError(e, "lchflags for unlink '{}' failed", _path.string());
   }
 #endif
 
@@ -306,7 +306,7 @@ FSPath::unlink() const
   if (e == ENOENT)
     return false;
   else
-    throw FSError(e, "unlink '" + _path.string() + "' failed");
+    throw FSError(e, "unlink '{}' failed", _path.string());
 }
 
 bool
@@ -319,7 +319,7 @@ FSPath::rmdir() const
   if (e == ENOENT)
     return false;
   else
-    throw FSError(e, "rmdir '" + _path.string() + "' failed");
+    throw FSError(e, "rmdir '{}' failed", _path.string());
 }
 
 bool
@@ -346,7 +346,7 @@ FSPath::utime(const Timestamp & t) const
                 << "utimensat(2) not implemented by this kernel, using utimes(2)";
         }
         else
-          throw FSError(e, "utimensat '" + _path.string() + "' failed");
+          throw FSError(e, "utimensat '{}' failed", _path.string());
     }
 #endif
 
@@ -358,7 +358,7 @@ FSPath::utime(const Timestamp & t) const
     if (e == ENOENT)
         return false;
     else
-      throw FSError(e, "utimes '" + _path.string() + "' failed");
+      throw FSError(e, "utimes '{}' failed", _path.string());
 }
 
 std::string
@@ -367,7 +367,7 @@ FSPath::readlink() const
     char buf[PATH_MAX + 1];
     std::memset(buf, 0, PATH_MAX + 1);
     if (-1 == ::readlink(_path.c_str(), buf, PATH_MAX))
-      throw FSError(errno, "readlink '" + _path.string() + "' failed");
+      throw FSError(errno, "readlink '{}' failed", _path.string());
     return buf;
 }
 
@@ -375,33 +375,31 @@ void
 FSPath::chown(const uid_t new_owner, const gid_t new_group) const
 {
   if (0 != ::chown(_path.c_str(), new_owner, new_group))
-    throw FSError(errno, "chown '" + _path.string() + "' to '" +
-                             stringify(new_owner) + "', '" +
-                             stringify(new_group) + "' failed");
+    throw FSError(errno, "chown '{}' to '{}', '{}' failed", _path.string(),
+                  stringify(new_owner), stringify(new_group));
 }
 
 void
 FSPath::lchown(const uid_t new_owner, const gid_t new_group) const
 {
   if (0 != ::lchown(_path.c_str(), new_owner, new_group))
-    throw FSError(errno, "lchown '" + _path.string() + "' to '" +
-                             stringify(new_owner) + "', '" +
-                             stringify(new_group) + "' failed");
+    throw FSError(errno, "lchown '{}' to '{}', '{}' failed", _path.string(),
+                  stringify(new_owner), stringify(new_group));
 }
 
 void
 FSPath::chmod(const mode_t mode) const
 {
   if (0 != ::chmod(_path.c_str(), mode))
-    throw FSError(errno, "chmod '" + _path.string() + "' failed");
+    throw FSError(errno, "chmod '{}' failed", _path.string());
 }
 
 void
 FSPath::rename(const FSPath & new_name) const
 {
   if (0 != std::rename(_path.c_str(), new_name._path.c_str())) {
-    throw FSError(errno, "rename('" + stringify(_path) + "', '" +
-                             stringify(new_name._path) + "') failed");
+    throw FSError(errno, "rename('{}', '{}') failed", stringify(_path),
+                  stringify(new_name._path));
   }
 }
 

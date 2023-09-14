@@ -23,6 +23,8 @@
 
 #include <paludis/util/exception.hh>
 
+#include <format>
+
 namespace paludis
 {
     /**
@@ -42,6 +44,15 @@ namespace paludis
             FSError(const std::string & message) noexcept;
             FSError(int error, const std::string & message) noexcept;
 
+            template <std::formattable<char>... Args>
+            FSError(std::format_string<Args...> fmt, Args &&...args) noexcept
+                : FSError{std::format(fmt, std::forward<Args>(args)...)} {};
+
+            template <std::formattable<char>... Args>
+            FSError(int error, std::format_string<Args...> fmt,
+                    Args &&...args) noexcept
+                : FSError{error,
+                          std::format(fmt, std::forward<Args>(args)...)} {};
             ///\}
     };
 }
